@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ponts de classe A en Wallonie — carte interactive</title>
+
+<!-- Leaflet (CDN) -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+
+<!-- Typographie : semi-condensée pour l'interface, mono pour les identifiants techniques -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+<style>
+  :root{
+    --ink:#20262c;          /* fond en-tête : acier sombre */
+    --ink-soft:#2c343c;
+    --paper:#f5f4f1;
+    --accent:#d97a1c;       /* ambre "signalisation chantier" */
+    --accent-deep:#a85708;
+    --txt-inverse:#eef0f2;
+    --txt-muted:#9aa4ad;
+    --line:#3a434c;
+    --mono:'IBM Plex Mono',ui-monospace,'SF Mono',Consolas,monospace;
+    --sans:'Barlow Semi Condensed','Segoe UI',system-ui,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    font-family:var(--sans);
+    display:flex;flex-direction:column;
+    background:var(--paper);
+  }
+
+  /* ---------- En-tête ---------- */
+  header{
+    background:var(--ink);
+    color:var(--txt-inverse);
+    padding:14px 20px 12px;
+    flex:0 0 auto;
+    position:relative;
+    z-index:1000;
+  }
+  .head-row{
+    display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;
+  }
+  h1{
+    font-size:clamp(17px,2.4vw,22px);
+    font-weight:700;
+    letter-spacing:.01em;
+    text-transform:uppercase;
+  }
+  .count{
+    font-family:var(--mono);
+    font-size:13px;font-weight:600;
+    color:var(--accent);
+    border:1px solid var(--line);
+    border-radius:3px;
+    padding:2px 8px;
+    white-space:nowrap;
+  }
+  .desc{
+    margin-top:6px;
+    font-size:14px;font-weight:400;
+    color:var(--txt-muted);
+    max-width:78ch;line-height:1.45;
+  }
+  .desc a{
+    color:var(--accent);
+    font-weight:600;
+    text-decoration:none;
+    border-bottom:1px solid var(--accent-deep);
+    padding-bottom:1px;
+    white-space:nowrap;
+  }
+  .desc a:hover,.desc a:focus-visible{color:#f0993c;border-bottom-color:#f0993c}
+  .desc a:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  .desc .dl-ico{font-family:var(--mono);font-size:12px}
+
+  /* liseré "chantier" sous l'en-tête */
+  .hazard{
+    height:5px;flex:0 0 auto;
+    background:repeating-linear-gradient(
+      -45deg,
+      var(--accent) 0 12px,
+      var(--ink) 12px 24px
+    );
+  }
+
+  /* ---------- Carte ---------- */
+  #map{flex:1 1 auto;min-height:0;background:#dfe6e9}
+
+  /* ---------- Infobulle ---------- */
+  .leaflet-tooltip.pont-tip{
+    padding:0;
+    border:1px solid var(--ink-soft);
+    border-radius:6px;
+    box-shadow:0 4px 14px rgba(20,25,30,.28);
+    background:#fff;
+    max-width:min(272px,calc(100vw - 32px));
+    white-space:normal;
+    overflow:hidden;
+  }
+  .leaflet-tooltip.pont-tip::before{display:none} /* pas de flèche : plus stable près des bords */
+
+  .tip-photo{
+    width:100%;height:130px;
+    background:#e8e6e1;
+    position:relative;
+    overflow:hidden;
+  }
+  .tip-photo img{
+    width:100%;height:100%;
+    object-fit:cover;display:block;
+  }
+  .tip-photo .no-photo{
+    position:absolute;inset:0;
+    display:flex;align-items:center;justify-content:center;
+    font-family:var(--mono);font-size:11px;
+    color:#9a958c;letter-spacing:.04em;
+  }
+  .tip-body{padding:9px 12px 10px}
+  .tip-name{
+    font-size:14.5px;font-weight:600;line-height:1.3;
+    color:#1c2126;margin-bottom:6px;
+  }
+  .tip-meta{
+    display:grid;grid-template-columns:auto 1fr;
+    gap:2px 10px;
+    font-size:12.5px;line-height:1.45;
+  }
+  .tip-meta dt{
+    color:#8a8478;font-weight:500;
+    text-transform:uppercase;font-size:10.5px;
+    letter-spacing:.05em;align-self:baseline;padding-top:1px;
+  }
+  .tip-meta dd{color:#2c343c;font-weight:500}
+  .tip-meta dd.mono{font-family:var(--mono);font-size:12px;letter-spacing:.02em}
+
+  /* ---------- Marqueurs ---------- */
+  .leaflet-interactive.pont-marker{cursor:pointer}
+
+  /* ---------- Mobile ---------- */
+  @media (max-width:560px){
+    header{padding:11px 14px 10px}
+    .desc{font-size:13px}
+    .tip-photo{height:104px}
+  }
+  @media (prefers-reduced-motion:reduce){
+    *{transition:none!important;animation:none!important}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="head-row">
+    <h1>Ponts de classe A en Wallonie</h1>
+    <span class="count" id="count">— ouvrages</span>
+  </div>
+  <p class="desc">
+    Les 41 ouvrages d'art classés « A », la catégorie la plus dégradée de l'inventaire
+    du Service public de Wallonie. Survolez un marqueur pour consulter la fiche de l'ouvrage.
+    <!-- ⬇️ MODIFIER CE LIEN : URL du PDF hébergé sur le serveur RTBF -->
+    <a href="https://www.rtbf.be/CHEMIN-A-MODIFIER/ponts_classe_a.pdf" download>
+      Télécharger le tableau complet (PDF)&nbsp;<span class="dl-ico">↓</span></a>
+  </p>
+</header>
+<div class="hazard" aria-hidden="true"></div>
+
+<div id="map" role="application" aria-label="Carte des ponts de classe A en Wallonie"></div>
+
+<script>
+/* ============================================================
+   DONNÉES — générées depuis Ponts_A_enrichi_GPS.csv (41 lignes)
+   n = Dénomination | f = fonction | e = Etat de service
+   b = N° B.D.O.A.  | p = photo (URL BDOA, peut être vide)
+   Les suffixes parasites des coordonnées GPS (ex. "(à vérifier)")
+   ont été nettoyés lors de la conversion.
+   ============================================================ */
+const PONTS = [{"n":"Pont des fosses à plomb RAVeL 142 (Vedrin) à NAMUR","f":"Passerelle pour piétons","e":"En service","b":"09630-0","lat":50.502397,"lon":4.868006,"p":"https://bdoa.spw.wallonie.be/BDOA/photos?id=225528&min=false"},{"n":"Pont RAVeL 142 - Rue du Bas-Daussoulx (Daussoulx) à NAMUR","f":"Pont route","e":"En service","b":"09631-0","lat":50.511699,"lon":4.870769,"p":"https://bdoa.spw.wallonie.be/BDOA/photos?id=225526&min=false"},{"n":"Aqueduc du Champ de Rosée à FLORENNES","f":"Aqueduc - Dalot - Buse","e":"En service","b":"12942-0","lat":50.236658,"lon":4.725727,"p":"https://bdoa.spw.wallonie.be/BDOA/photos?id=212395&min=false"},{"n":"PONT DE HEMPTINNE à PHILIPPEVILLE","f":"Pont route","e":"En travaux","b":"06432-0","lat":50.200775,"lon":4.5489,"p":"https://bdoa.spw.wallonie.be/BDOA/photos?id=220696&min=false"},{"n":"VIADUC D'YVES GOMEZEE à WALCOURT","f":"Viaduc routier (+ de 4 travées - grande hauteur)","e":"En service","b":"01132-0","lat":50.237192,"lon":4.513209,"p":"https://bdoa.spw.wallonie.be/BDOA/photos?id=223451&min=false"},{"n":"PONT SUR LA FONTAINE-SEVENANCE à HELECINE","f":"Pont route","e":"En service","b":"03314-0","lat":50.763237,"lon":4.991713,"p":"https://bdoa.spw.wallonie.be/BDOA/photos?id=195367&min=false"},{"n":"PASSERELLE DES CRAPAUDS à RAMILLIES","f":"","e":"Circulation interdite","b":"09149-0","lat":50.64269038,"lon":4.89256471,"p":""},{"n":"PERTUIS DE L'ERNELLE - Partie sous le Port à CHARLEROI","f":"Tunnel pour cours d'eau","e":"En service","b":"05029-1","lat":50.407408,"lon":4.386078,"p":"https://bdoa.spw.wallonie.be/BDOA/photos?id=221933&min=false"},{"n":"PONT ROUTE DE SOLEILMONT à CHARLEROI","f":"Pont route","e":"En travaux","b":"05602-0","lat":50.440358,"lon":4.497515,"p":"https://bdoa.spw.wallonie.be/BDOA/photos?id=222845&min=false"},{"n":"VIADUC ZONE IX DU RING R 9 - AXE 1,NIV+114 à CHARLEROI","f":"Pont autoroutier","e":"En service","b":"05968-0","lat":50.4057,"lon":4.448705,"p":"https://bdoa.spw.wallonie.be/BDOA/photos?id=238606&min=false"},{"n":"Pont de Couillet - Montignies intermédiaire à CHARLEROI","f":"Pont route","e":"En service","b":"12670-0","lat":50.395982,"lon":4.48008,"p":"https://bdoa.spw.wallonie.be/BDOA/photos?id=246875&min=false"},{"n":"PONT WATTELAER à CHARLEROI","f":"Pont route","e":"Circulation limitée","b":"09381-0","lat":50.444841,"lon":4.421444,"p":"https://bdoa.spw.wallonie.be/BDOA/photos?id=242703&min=false"},{"n":"PONT-RUE DE COURCELLES à COURCELLES","f":"Pont route","e":"En service","b":"03541-0","lat":50.481973,"lon":4.347964,"p":"https://bdoa.spw.wallonie.be/BDOA/photos?id=243635&min=false"},{"n":"PONT-RUE DU PETIT TRI à FARCIENNES","f":"Pont route","e":"En service","b":"00157-0","lat":50.444699,"lon":4.557827,"p":"https://bdoa.spw.wallonie.be/BDOA/photos?id=245559&min=false"},{"n":"PONT-AV D'AZEBOIS à PONT-A-CELLES","f":"Pont route","e":"En service","b":"03534-0","lat":50.476243,"lon":4.424353,"p":"https://bdoa.spw.wallonie.be/BDOA/photos?id=216723&min=false"},{"n":"PONT DU MOULIN DE LENS à LENS","f":"Pont route","e":"En service","b":"03235-0","lat":50.55587,"lon":3.900155,"p":"https://bdoa.spw.wallonie.be/BDOA/photos?id=186324&min=false"},{"n":"PONT 752 OU F2BIS à MONS","f":"Pont route","e":"En travaux","b":"03377-0","lat":50.480352,"lon":4.052802,"p":"https://bdoa.spw.wallonie.be/BDOA/photos?id=163700&min=false"},{"n":"PONT CAPITTE à LA LOUVIERE","f":"","e":"En travaux (destruction)","b":"00958-0","lat":50.4811731,"lon":4.1688802,"p":""},{"n":"PT ANC SAMME-DES RECOLLETS à BINCHE","f":"Aqueduc - Dalot - Buse","e":"Hors-service","b":"02820-0","lat":50.41211,"lon":4.168526,"p":"https://bdoa.spw.wallonie.be/BDOA/photos?id=209593&min=false"},{"n":"Aqueduc du Trieu Vichot à THUIN","f":"Aqueduc - Dalot - Buse","e":"En service","b":"12823-0","lat":50.319574,"lon":4.305584,"p":"https://bdoa.spw.wallonie.be/BDOA/photos?id=231113&min=false"},{"n":"PONT DU FESTU à LEUZE-EN-HAINAUT","f":"Pont route","e":"En service","b":"01158-0","lat":50.591164,"lon":3.563648,"p":"https://bdoa.spw.wallonie.be/BDOA/photos?id=207020&min=false"},{"n":"VIEUX PONT DE POUHON à AYWAILLE","f":"Pont route","e":"Circulation interdite","b":"03819-0","lat":50.419876,"lon":5.674177,"p":"https://bdoa.spw.wallonie.be/BDOA/photos?id=222660&min=false"},{"n":"PONCEAU SUR LE RY A EMBOURG à CHAUDFONTAINE","f":"","e":"En service","b":"03476-0","lat":50.597021,"lon":5.610588,"p":"https://bdoa.spw.wallonie.be/BDOA/photos?id=216838&min=false"},{"n":"Brichtembeau à DALHEM","f":"","e":"","b":"22960-0","lat":50.731317,"lon":5.721773,"p":""},{"n":"PONT 111 SUR LIGNE 34 à HERSTAL","f":"Pont autoroutier","e":"En travaux","b":"04715-0","lat":50.69818,"lon":5.578146,"p":"https://bdoa.spw.wallonie.be/BDOA/photos?id=180905&min=false"},{"n":"PONT 29 à LIEGE","f":"Pont autoroutier","e":"En service","b":"04647-0","lat":50.680235,"lon":5.660286,"p":"https://bdoa.spw.wallonie.be/BDOA/photos?id=208999&min=false"},{"n":"PONT DE FETINNE à LIEGE","f":"Pont route","e":"En service","b":"03014-0","lat":50.621779,"lon":5.581941,"p":"https://bdoa.spw.wallonie.be/BDOA/photos?id=198297&min=false"},{"n":"Mur de soutènement rue de la Forêt à LIEGE","f":"Mur de soutènement","e":"En service","b":"12532-0","lat":50.660991,"lon":5.663819,"p":"https://bdoa.spw.wallonie.be/BDOA/photos?id=222668&min=false"},{"n":"PONT LEVIS SUR TETE DE GARDE 1BIS à LIEGE","f":"Pont route","e":"Circulation limitée","b":"00855-0","lat":50.616373,"lon":5.588147,"p":"https://bdoa.spw.wallonie.be/BDOA/photos?id=229971&min=false"},{"n":"Passerelle de Colonster - RAVeL n°5 à LIEGE","f":"Pont RAVeL","e":"Circulation interdite","b":"12531-0","lat":50.588756,"lon":5.588677,"p":""},{"n":"PONT DE L'HONNEUX à LIEGE","f":"Pont Route","e":"","b":"02861-0","lat":50.6098989,"lon":5.6194624,"p":""},{"n":"BUSE DE L'ECHANGEUR DE LONCIN à GRACE-HOLLOGNE","f":"Aqueduc - Dalot - Buse","e":"En travaux","b":"09403-0","lat":50.665542,"lon":5.484238,"p":"https://bdoa.spw.wallonie.be/BDOA/photos?id=210701&min=false"},{"n":"PONT S74 à RAEREN","f":"Pont route","e":"En service","b":"04700-0","lat":50.695751,"lon":6.071711,"p":"https://bdoa.spw.wallonie.be/BDOA/photos?id=246993&min=false"},{"n":"PONT S76 à RAEREN","f":"Pont route","e":"En service","b":"04704-0","lat":50.710224,"lon":6.103164,"p":"https://bdoa.spw.wallonie.be/BDOA/photos?id=242575&min=false"},{"n":"PONT 63 SUR LIGNE DÉSAFFECTÉE à LINCENT","f":"Pont autoroutier","e":"En service","b":"00917-0","lat":50.717383,"lon":5.02379,"p":"https://bdoa.spw.wallonie.be/BDOA/photos?id=223479&min=false"},{"n":"PONT SUR LA MANDEBRAS à HABAY","f":"Pont route","e":"En travaux","b":"10380-0","lat":49.718268,"lon":5.559642,"p":"https://bdoa.spw.wallonie.be/BDOA/photos?id=239892&min=false"},{"n":"OA N°26 (Tunnel de Falaën) à ANHEE","f":"Tunnel pour piétons","e":"En service","b":"09459-0","lat":50.292426,"lon":4.811894,"p":"https://bdoa.spw.wallonie.be/BDOA/photos?id=212187&min=false"},{"n":"Ponceau du ruisseau d'Ausse à BEAURAING","f":"Pont route","e":"En travaux","b":"12437-0","lat":50.135299,"lon":5.047741,"p":"https://bdoa.spw.wallonie.be/BDOA/photos?id=213646&min=false"},{"n":"Pont le Grand Pachis à ROCHEFORT","f":"Pont rail","e":"Hors-service","b":"12113-0","lat":50.16272,"lon":5.109464,"p":"https://bdoa.spw.wallonie.be/BDOA/photos?id=231328&min=false"},{"n":"PONT DE LA FERME NARON à ROCHEFORT","f":"Pont route","e":"Hors-service","b":"09186-0","lat":50.162415,"lon":5.100837,"p":"https://bdoa.spw.wallonie.be/BDOA/photos?id=231493&min=false"},{"n":"PONT DE LA DUVE à HASTIERE","f":"Pont route","e":"Circulation limitée","b":"09487-0","lat":50.159887,"lon":4.806673,"p":"https://bdoa.spw.wallonie.be/BDOA/photos?id=222054&min=false"}];
+
+/* ---------- Carte ---------- */
+const map = L.map('map', {zoomControl:true});
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  maxZoom: 19,
+  attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+}).addTo(map);
+
+/* ---------- Utilitaires ---------- */
+const esc = s => String(s ?? '').replace(/[&<>"']/g,
+  c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+const truncate = (s, max = 48) =>
+  s.length > max ? s.slice(0, max - 1).trimEnd() + '…' : s;
+
+function tooltipHTML(p){
+  const photoBlock = p.p
+    ? `<div class="tip-photo"><span class="no-photo">Chargement…</span>` +
+      `<img alt="" loading="lazy" data-src="${esc(p.p)}"></div>`
+    : `<div class="tip-photo"><span class="no-photo">Photo indisponible</span></div>`;
+  return photoBlock +
+    `<div class="tip-body">
+       <div class="tip-name">${esc(truncate(p.n))}</div>
+       <dl class="tip-meta">
+         <dt>Fonction</dt><dd>${esc(p.f || '—')}</dd>
+         <dt>État</dt><dd>${esc(p.e || 'Non renseigné')}</dd>
+         <dt>B.D.O.A.</dt><dd class="mono">${esc(p.b || '—')}</dd>
+       </dl>
+     </div>`;
+}
+
+/* ---------- Marqueurs ---------- */
+const bounds = [];
+PONTS.forEach(p => {
+  const marker = L.circleMarker([p.lat, p.lon], {
+    radius: 7,
+    fillColor: '#d97a1c',
+    fillOpacity: 0.92,
+    color: '#5c3305',
+    weight: 1.5,
+    className: 'pont-marker'
+  }).addTo(map);
+
+  marker.bindTooltip(tooltipHTML(p), {
+    className: 'pont-tip',
+    direction: 'top',
+    offset: [0, -8],
+    sticky: false,
+    opacity: 1,
+    interactive: false
+  });
+
+  /* Sur mobile (pas de survol), un appui sur le marqueur ouvre l'infobulle. */
+  marker.on('click', () => marker.openTooltip());
+
+  /* Chargement différé de la photo : uniquement à l'ouverture,
+     pour éviter 41 requêtes vers le serveur BDOA (parfois lent). */
+  marker.on('tooltipopen', e => {
+    const img = e.tooltip.getElement().querySelector('img[data-src]');
+    if (!img) return;
+    const holder = img.closest('.tip-photo');
+    img.onload  = () => { const n = holder.querySelector('.no-photo'); if (n) n.remove(); };
+    img.onerror = () => {
+      img.remove();
+      const n = holder.querySelector('.no-photo');
+      if (n) n.textContent = 'Photo indisponible';
+    };
+    img.src = img.dataset.src;
+    img.removeAttribute('data-src');
+  });
+
+  bounds.push([p.lat, p.lon]);
+});
+
+map.fitBounds(bounds, {padding: [36, 36]});
+document.getElementById('count').textContent = PONTS.length + ' ouvrages';
+</script>
+</body>
+</html>

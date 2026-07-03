@@ -366,8 +366,8 @@ PONTS.forEach(p => {
   bounds.push([p.lat, p.lon]);
 });
 
-map.setView([50.64, 4.62], 8);
-
+map.fitBounds(bounds, {padding:[34,34]});
+      
 /* Compte injecté dans le sous-titre */
 document.getElementById('subtitle').textContent =
   `Les ${PONTS.length} ouvrages d'art classés « A », la catégorie la plus dégradée de l'inventaire du Service public de Wallonie.`;

@@ -325,7 +325,7 @@ L.tileLayer(
 /* Couches Wallonie : isolées dans un try/catch pour qu'un problème éventuel
    ne bloque jamais l'affichage des marqueurs. */
 try {
-  /* Grise tout ce qui n'est pas la Wallonie (le reste de la Belgique, la France, etc.) */
+  /* Grise tout ce qui n'est pas la Wallonie (le reste de la Belgique, la France, etc.) 
   L.geoJSON(WALLONIA_MASK, {
     interactive:false,
     style:{
@@ -335,6 +335,7 @@ try {
       fillOpacity: dark ? 0.55 : 0.16
     }
   }).addTo(map);
+  */
 
   /* Trace la frontière exacte de la Région wallonne */
   L.geoJSON(WALLONIA_OUTLINE, {

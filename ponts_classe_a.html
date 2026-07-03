@@ -66,11 +66,17 @@
   .wrap{
     display:flex;flex-direction:column;
     width:100%;margin:0 auto;
-    padding:14px 16px 16px;
+    padding:14px 0 16px;
+  }
+
+  /* Colonne centrée à largeur limitée pour le texte et la légende — la carte, elle, reste hors de ce conteneur */
+  .content{
+    width:100%;max-width:720px;margin:0 auto;
+    padding:0 16px;
   }
 
   /* ---------- En-tête ---------- */
-  .head{margin-bottom:12px}
+  .head{margin-bottom:14px;text-align:center}
   .title{
     font-family:var(--sans);
     font-weight:700;font-size:19px;line-height:1.3;
@@ -85,12 +91,12 @@
     font-size:12px;line-height:1.45;color:var(--muted);
     background:var(--hint-bg);border-radius:6px;
     padding:9px 12px;margin-top:11px;
-    display:flex;align-items:center;gap:8px;
+    display:inline-flex;align-items:center;gap:8px;
   }
   .hint svg{flex:0 0 auto;opacity:.75}
 
   /* ---------- Carte ---------- */
-  .map-shell{position:relative}
+  .map-shell{position:relative;margin:4px 0}
   #map{
     height:62vh;max-height:640px;min-height:380px;
     width:100%;border-radius:6px;overflow:hidden;
@@ -118,7 +124,7 @@
     position:absolute;z-index:500;display:none;
     width:300px;max-width:calc(100% - 24px);
     background:var(--tip-bg);color:var(--tip-text);
-    border:1px solid var(--tip-border);border-radius:4px;
+    border:1px solid var(--tip-border);border-radius:14px;
     box-shadow:rgba(0,0,0,.1) 0 4px 7px 2px;
     overflow:hidden;pointer-events:none;
     font-size:12px;line-height:20px;
@@ -177,9 +183,9 @@
   .br-tip.mobile .br-close{display:flex}
 
   /* ---------- Légende / source ---------- */
-  .foot{margin-top:11px}
+  .foot{margin-top:13px;text-align:center}
   .legend{
-    display:flex;align-items:center;gap:7px;
+    display:inline-flex;align-items:center;gap:7px;
     font-size:12.5px;color:var(--subtitle);
   }
   .legend .dot{
@@ -208,12 +214,14 @@
 <body>
 <div class="wrap">
 
-  <div class="head">
-    <div class="title">Ponts de classe A en Wallonie</div>
-    <div class="subtitle" id="subtitle">Les ouvrages d'art classés « A », la catégorie la plus dégradée de l'inventaire du Service public de Wallonie.</div>
-    <div class="hint">
-      <svg width="15" height="15" viewBox="0 0 20 20" fill="currentColor"><path d="M10 2a8 8 0 100 16 8 8 0 000-16zm1 12H9v-2h2v2zm0-4H9V6h2v4z"/></svg>
-      <span id="hint-text">Survolez un point pour afficher la fiche de l'ouvrage.</span>
+  <div class="content">
+    <div class="head">
+      <div class="title">Ponts de classe A en Wallonie</div>
+      <div class="subtitle" id="subtitle">Les ouvrages d'art classés « A », la catégorie la plus dégradée de l'inventaire du Service public de Wallonie.</div>
+      <div class="hint">
+        <svg width="15" height="15" viewBox="0 0 20 20" fill="currentColor"><path d="M10 2a8 8 0 100 16 8 8 0 000-16zm1 12H9v-2h2v2zm0-4H9V6h2v4z"/></svg>
+        <span id="hint-text">Survolez un point pour afficher la fiche de l'ouvrage.</span>
+      </div>
     </div>
   </div>
 
@@ -221,11 +229,13 @@
     <div id="map" role="application" aria-label="Carte des ponts de classe A en Wallonie"></div>
   </div>
 
-  <div class="foot">
-    <div class="legend"><span class="dot" aria-hidden="true"></span>Pont de santé A (les plus fragiles)»)</div>
-    <div class="source">Source&nbsp;: B.D.O.A. — Base de données des ouvrages d'art du SPW.
-      <!-- ⬇️ MODIFIER CE LIEN : URL du PDF hébergé sur le serveur RTBF -->
-      <a href="https://www.rtbf.be/CHEMIN-A-MODIFIER/ponts_classe_a.pdf" download>Télécharger le tableau complet (PDF)</a>
+  <div class="content">
+    <div class="foot">
+      <div class="legend"><span class="dot" aria-hidden="true"></span>Pont de classe A (« sous-groupe santé A »)</div>
+      <div class="source">Source&nbsp;: B.D.O.A. — Base de données des ouvrages d'art du SPW.
+        <!-- ⬇️ MODIFIER CE LIEN : URL du PDF hébergé sur le serveur RTBF -->
+        <a href="https://www.rtbf.be/CHEMIN-A-MODIFIER/ponts_classe_a.pdf" download>Télécharger le tableau complet (PDF)</a>
+      </div>
     </div>
   </div>
 
@@ -251,7 +261,7 @@ const isTouch = matchMedia('(hover: none)').matches ||
 /* ---------- Carte ---------- */
 const map = L.map('map', {
   zoomControl:false, attributionControl:true,
-  scrollWheelZoom:false,      /* évite de capter le scroll de la page dans l'article */
+  scrollWheelZoom:true,
   dragging:true, doubleClickZoom:true,
   boxZoom:false, keyboard:true, touchZoom:true
 });
@@ -356,7 +366,7 @@ PONTS.forEach(p => {
   bounds.push([p.lat, p.lon]);
 });
 
-map.fitBounds(bounds, {padding:[34,34]});
+map.setView([50.64, 4.62], 8);
 
 /* Compte injecté dans le sous-titre */
 document.getElementById('subtitle').textContent =

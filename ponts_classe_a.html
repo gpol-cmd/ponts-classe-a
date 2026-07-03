@@ -422,27 +422,37 @@ const bounds = [];
 const srRows = [];
 
 PONTS.forEach(p => {
-  const marker = L.circleMarker([p.lat, p.lon], {
+  /* Point visible : purement décoratif (non interactif) */
+  L.circleMarker([p.lat, p.lon], {
     radius:6.5, fillColor:'#d8382f', fillOpacity:.92,
-    color:'#ffffff', weight:1.5
+    color:'#ffffff', weight:1.5,
+    interactive:false
+  }).addTo(map);
+
+  /* Halo invisible ~3x plus large : c'est lui qui capte le survol et le clic,
+     pour que la fiche s'ouvre dès que la souris s'approche du point
+     (cible confortable, notamment pour les publics moins précis à la souris). */
+  const hit = L.circleMarker([p.lat, p.lon], {
+    radius:17, stroke:false, fill:true,
+    fillColor:'#000', fillOpacity:0
   }).addTo(map);
 
   if(isTouch){
-    marker.on('click', () => showTip(p, marker.getLatLng()));
+    hit.on('click', () => showTip(p, hit.getLatLng()));
   }else{
-    marker.on('mouseover', () => showTip(p, marker.getLatLng()));
-    marker.on('mouseout', hideTip);
+    hit.on('mouseover', () => showTip(p, hit.getLatLng()));
+    hit.on('mouseout', hideTip);
   }
 
-  /* Accessibilité clavier : chaque marqueur devient un élément focusable,
-     annoncé par les lecteurs d'écran, qui ouvre/ferme la même fiche que la souris. */
-  const el = marker.getElement();
+  /* Accessibilité clavier : le halo (élément interactif) devient focusable,
+     annoncé par les lecteurs d'écran, et ouvre/ferme la même fiche que la souris. */
+  const el = hit.getElement();
   if(el){
     el.setAttribute('tabindex', '0');
     el.setAttribute('role', 'button');
     el.setAttribute('aria-label',
       `${p.name}, ${p.c}. ${p.f || "Ouvrage d'art"}. État de service : ${p.e || 'non renseigné'}.`);
-    el.addEventListener('focus', () => showTip(p, marker.getLatLng()));
+    el.addEventListener('focus', () => showTip(p, hit.getLatLng()));
     el.addEventListener('blur', hideTip);
     el.addEventListener('keydown', ev => {
       if(ev.key === 'Escape') { hideTip(); el.blur(); }

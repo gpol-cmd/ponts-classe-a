@@ -124,7 +124,7 @@
     position:absolute;z-index:500;display:none;
     width:300px;max-width:calc(100% - 24px);
     background:var(--tip-bg);color:var(--tip-text);
-    border:1px solid var(--tip-border);border-radius:4px;
+    border:1px solid var(--tip-border);border-radius:14px;
     box-shadow:rgba(0,0,0,.1) 0 4px 7px 2px;
     overflow:hidden;pointer-events:none;
     font-size:12px;line-height:20px;
@@ -213,6 +213,19 @@
     #map{height:66vh}
   }
   @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+
+  /* ---------- Accessibilité ---------- */
+  .sr-only{
+    position:absolute;width:1px;height:1px;padding:0;margin:-1px;
+    overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;
+  }
+  .leaflet-interactive:focus{
+    outline:3px solid var(--accent);outline-offset:2px;
+  }
+  .leaflet-interactive:focus:not(:focus-visible){outline:none}
+  .leaflet-interactive:focus-visible{
+    outline:3px solid var(--accent);outline-offset:2px;
+  }
 </style>
 </head>
 <body>
@@ -224,14 +237,33 @@
       <div class="subtitle" id="subtitle">Les ouvrages d'art classés « A », la catégorie la plus dégradée de l'inventaire du Service public de Wallonie.</div>
       <div class="hint">
         <svg width="15" height="15" viewBox="0 0 20 20" fill="currentColor"><path d="M10 2a8 8 0 100 16 8 8 0 000-16zm1 12H9v-2h2v2zm0-4H9V6h2v4z"/></svg>
-        <span id="hint-text">Survolez un point pour afficher la fiche de l'ouvrage.</span>
+        <span id="hint-text">Survolez un point pour afficher la fiche de l'ouvrage. Naviguez au clavier avec Tab pour les parcourir un par un.</span>
       </div>
     </div>
   </div>
 
   <div class="map-shell" id="shell">
-    <div id="map" role="application" aria-label="Carte des ponts de classe A en Wallonie"></div>
+    <div id="map" role="application" aria-label="Carte interactive des 41 ponts de classe A en Wallonie, les plus dégradés de l'inventaire du SPW"></div>
   </div>
+
+  <h2 class="sr-only">Liste des ouvrages d'art de classe A en Wallonie</h2>
+  <table class="sr-only" id="sr-table">
+    <caption>
+      Équivalent textuel de la carte ci-dessus : liste des 41 ouvrages d'art classés « A » en Wallonie,
+      la catégorie la plus dégradée de l'inventaire du Service public de Wallonie (SPW), avec leur commune,
+      leur fonction, leur état de service et leur numéro de référence B.D.O.A.
+    </caption>
+    <thead>
+      <tr>
+        <th scope="col">Nom du pont</th>
+        <th scope="col">Commune</th>
+        <th scope="col">Fonction</th>
+        <th scope="col">État de service</th>
+        <th scope="col">N° B.D.O.A.</th>
+      </tr>
+    </thead>
+    <tbody id="sr-table-body"></tbody>
+  </table>
 
   <div class="content">
     <div class="foot">
@@ -356,6 +388,8 @@ function hideTip(){ tip.style.display = 'none'; }
 
 /* ---------- Marqueurs ---------- */
 const bounds = [];
+const srRows = [];
+
 PONTS.forEach(p => {
   const marker = L.circleMarker([p.lat, p.lon], {
     radius:6.5, fillColor:'#d8382f', fillOpacity:.92,
@@ -368,8 +402,32 @@ PONTS.forEach(p => {
     marker.on('mouseover', () => showTip(p, marker.getLatLng()));
     marker.on('mouseout', hideTip);
   }
+
+  /* Accessibilité clavier : chaque marqueur devient un élément focusable,
+     annoncé par les lecteurs d'écran, qui ouvre/ferme la même fiche que la souris. */
+  const el = marker.getElement();
+  if(el){
+    el.setAttribute('tabindex', '0');
+    el.setAttribute('role', 'button');
+    el.setAttribute('aria-label',
+      `${p.name}, ${p.c}. ${p.f || "Ouvrage d'art"}. État de service : ${p.e || 'non renseigné'}.`);
+    el.addEventListener('focus', () => showTip(p, marker.getLatLng()));
+    el.addEventListener('blur', hideTip);
+    el.addEventListener('keydown', ev => {
+      if(ev.key === 'Escape') { hideTip(); el.blur(); }
+    });
+  }
+
   bounds.push([p.lat, p.lon]);
+
+  srRows.push(
+    `<tr><td>${esc(p.name)}</td><td>${esc(p.c)}</td>` +
+    `<td>${esc(p.f || "Ouvrage d'art")}</td><td>${esc(p.e || 'Non renseigné')}</td>` +
+    `<td>${esc(p.b || '—')}</td></tr>`
+  );
 });
+
+document.getElementById('sr-table-body').innerHTML = srRows.join('');
 
 map.fitBounds(bounds, {padding:[34,34]});
 

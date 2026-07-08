@@ -121,16 +121,13 @@
     height:auto;
   }
 }
-      /* When embedded in an iframe, drop vh (no resize loop): the whole page
-   fills the iframe, and the map takes the remaining space via fl: */
-html.embedded, html.embedded body{height:100%}
-html.embedded .wrap{height:100%}
+      /* En embed iframe : la page adopte sa hauteur naturelle et la
+         communique au parent (script en fin de body), qui ajuste l'iframe.
+         Plus de vh (pas de boucle de redimensionnement), et la carte prend
+         une hauteur fixe raisonnable, identique sur tous les écrans. */
 html.embedded #map{
-  height:auto;max-height:none;min-height:0;
-  flex:1 1 auto;
+  height:520px;max-height:none;min-height:0;
 }
-html.embedded .map-shell{flex:1 1 auto;display:flex}
-html.embedded #map{width:100%}
   .leaflet-container{font-family:var(--sans);background:var(--bg)}
   .leaflet-control-attribution{
     font-size:10px;background:rgba(255,255,255,.72)!important;color:var(--muted)!important;
@@ -563,6 +560,30 @@ if(isTouch){
   document.getElementById('hint-text').textContent =
     "Touchez un point pour afficher la fiche de l'ouvrage.";
 }
+</script>
+
+<script>
+/* ============================================================
+   Signal de hauteur pour un embed en <iframe> auto-ajustable
+   (article RTBF). Sans effet hors iframe (window.parent === window).
+   Renvoyé plusieurs fois au début pour survivre à une course où le
+   script du CMS n'écoute pas encore lors du premier envoi.
+   ============================================================ */
+(function(){
+  if(window.parent === window) return;
+  function sendHeight(){
+    const h = document.documentElement.scrollHeight;
+    window.parent.postMessage({ type:'ponts-map:height', height:h }, '*');
+  }
+  if('ResizeObserver' in window){
+    new ResizeObserver(sendHeight).observe(document.documentElement);
+  }
+  window.addEventListener('resize', sendHeight);
+  window.addEventListener('load', sendHeight);
+  sendHeight();
+  let n = 0;
+  const retry = setInterval(() => { sendHeight(); if(++n >= 20) clearInterval(retry); }, 300);
+})();
 </script>
 </body>
 </html>

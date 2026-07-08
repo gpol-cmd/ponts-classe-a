@@ -98,15 +98,26 @@
 
   /* ---------- Carte ---------- */
   .map-shell{position:relative;margin:4px 0}
+/* Desktop */
 #map{
-  height:62vh;max-height:640px;min-height:380px; 
+  height:62vh;
+  max-height:640px;
+  min-height:380px;
   width:100%;border-radius:6px;overflow:hidden;
   background:var(--bg);z-index:1;
 }
 
+/* Tablette moyenne */
+@media (max-width:900px){
+  #map{
+    min-height:420px;
+  }
+}
+
+/* Petit mobile */
 @media (max-width:600px){
   #map{
-    min-height:600px;  /* encore plus grand sur petit écran */
+    min-height:500px;
     height:auto;
   }
 }

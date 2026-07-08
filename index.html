@@ -123,10 +123,16 @@
 }
       /* En embed iframe : la page adopte sa hauteur naturelle et la
          communique au parent (script en fin de body), qui ajuste l'iframe.
-         Plus de vh (pas de boucle de redimensionnement), et la carte prend
-         une hauteur fixe raisonnable, identique sur tous les écrans. */
+         La carte prend une hauteur PROPORTIONNELLE à sa largeur (ratio ~3:2)
+         plafonnée, pour rester grande sur ordinateur et compacte sur mobile
+         sans hauteur fixe unique inadaptée. */
 html.embedded #map{
-  height:520px;max-height:none;min-height:0;
+  height:auto;min-height:0;
+  aspect-ratio:3 / 2;
+  max-height:600px;
+}
+@media (max-width:600px){
+  html.embedded #map{aspect-ratio:auto;height:480px;max-height:none}
 }
   .leaflet-container{font-family:var(--sans);background:var(--bg)}
   .leaflet-control-attribution{
